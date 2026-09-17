@@ -31,4 +31,17 @@ class LandingPageTest extends TestCase
             ->assertSee('Dashboard')
             ->assertSee('Open POS');
     }
+
+    public function test_navigation_links_target_sections_on_the_same_page(): void
+    {
+        $response = $this->get('/');
+
+        foreach (['home', 'features', 'solutions', 'pricing', 'resources'] as $section) {
+            $response->assertSee('href="#'.$section.'"', false)
+                ->assertSee('id="'.$section.'"', false);
+        }
+
+        $response->assertSee('aria-current="location"', false)
+            ->assertSee(route('login'), false);
+    }
 }
