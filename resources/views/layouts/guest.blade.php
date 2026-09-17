@@ -49,12 +49,6 @@
                     <x-sniper-brand class="justify-center" />
                 </div>
 
-                <div class="mb-6 hidden lg:block">
-                    <div class="sniper-kicker">Welcome back</div>
-                    <h2 class="mt-2 font-heading text-3xl font-bold tracking-[-0.03em] text-sniper-navy">Sign in to SniperPOS</h2>
-                    <p class="mt-2 text-sm leading-6 text-sniper-slate">Use your authorized account to continue to the workspace.</p>
-                </div>
-
                 <div class="sniper-card px-6 py-7 sm:px-8 sm:py-8">
                     {{ $slot }}
                 </div>
