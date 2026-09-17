@@ -28,9 +28,15 @@
         }
 
         html { scroll-behavior: smooth; }
+        .landing-shell [id] { scroll-margin-top: var(--landing-header-height, 150px); }
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+        }
         body { font-family: 'Inter', sans-serif; color: var(--sniper-navy); }
         .font-display { font-family: 'Montserrat', sans-serif; }
-        .landing-shell { background: #fff; overflow: hidden; }
+        .landing-shell { background: #fff; overflow-x: clip; }
+        .landing-header { position: sticky; top: 0; }
+        .landing-header a[aria-current="location"] { color: var(--sniper-red); font-weight: 700; }
         .hero-grid {
             background-image:
                 radial-gradient(circle at 62% 36%, rgba(229, 9, 20, .085), transparent 28%),
@@ -59,12 +65,12 @@
             background: var(--sniper-red);
             transition: right .2s ease;
         }
-        .nav-link:hover::after { right: 0; }
+        .nav-link:hover::after, .nav-link[aria-current="location"]::after { right: 0; }
         .mini-icon svg { width: 24px; height: 24px; }
     </style>
 </head>
 <body class="landing-shell antialiased">
-    <header class="relative z-40 bg-white/95 backdrop-blur border-b border-slate-100">
+    <header class="landing-header z-40 bg-white/95 backdrop-blur border-b border-slate-100">
         <div class="mx-auto flex max-w-[1540px] items-center justify-between px-5 py-4 sm:px-8 lg:px-12">
             <a href="#home" class="flex items-center gap-3" aria-label="SniperPOS home">
                 <img src="/icons/icon-192.png" alt="SniperPOS" class="h-12 w-12 rounded-xl object-contain sm:h-14 sm:w-14">
@@ -77,7 +83,7 @@
             </a>
 
             <nav class="hidden items-center gap-9 lg:flex">
-                <a href="#home" class="nav-link font-semibold text-[#E50914]">Home</a>
+                <a href="#home" aria-current="location" class="nav-link text-sm font-medium text-[#0F2747]">Home</a>
                 <a href="#features" class="nav-link text-sm font-medium text-[#0F2747]">Features</a>
                 <a href="#solutions" class="nav-link text-sm font-medium text-[#0F2747]">Solutions</a>
                 <a href="#pricing" class="nav-link text-sm font-medium text-[#0F2747]">Pricing</a>
@@ -98,6 +104,7 @@
         <details class="border-t border-slate-100 px-5 py-3 lg:hidden">
             <summary class="cursor-pointer list-none text-sm font-semibold text-[#0F2747]">Browse site</summary>
             <div class="mt-3 grid grid-cols-2 gap-2 pb-1 text-sm">
+                <a href="#home" aria-current="location" class="rounded-lg bg-slate-50 px-3 py-2">Home</a>
                 <a href="#features" class="rounded-lg bg-slate-50 px-3 py-2">Features</a>
                 <a href="#solutions" class="rounded-lg bg-slate-50 px-3 py-2">Solutions</a>
                 <a href="#pricing" class="rounded-lg bg-slate-50 px-3 py-2">Pricing</a>

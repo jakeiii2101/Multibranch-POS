@@ -17,7 +17,11 @@ class AuthenticationTest extends TestCase
 
         $response
             ->assertOk()
+            ->assertSee('Log in to SniperPOS')
+            ->assertDontSee('Sign in to SniperPOS')
             ->assertSeeVolt('pages.auth.login');
+
+        $this->assertSame(1, substr_count($response->getContent(), 'Welcome Back'));
     }
 
     public function test_users_can_authenticate_using_the_login_screen(): void
