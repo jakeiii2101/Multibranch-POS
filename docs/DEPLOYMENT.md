@@ -2,26 +2,7 @@
 
 ## Development / QA
 
-The current GitHub Codespaces preview is:
-
-`https://psychic-succotash-g4r7vr95prvq3vjr6-8080.app.github.dev/`
-
-Laravel links should remain relative so the current HTTPS host is preserved. Do not hardcode localhost URLs in Blade templates.
-
-Typical Codespaces refresh after pulling changes:
-
-```bash
-cd /workspaces/simple-pos-v1
-git pull origin main
-sudo service mysql start
-composer install --no-interaction
-npm ci
-npm run build
-php artisan migrate --force
-php artisan optimize:clear
-php artisan test
-php artisan serve --host=0.0.0.0 --port=8080
-```
+Use [the reproducible GitHub Codespaces baseline setup](CODESPACES_SETUP.md). It pins PHP 8.4 with `pdo_mysql`, Node 22 and an isolated MySQL 8.4 service. The development `.env` is created locally and is never committed. The former hardcoded Codespace hostname and single-repository path are obsolete.
 
 ## Production prerequisites
 
@@ -143,3 +124,4 @@ Do not bake production secrets or Laravel config cache into the Docker image. En
 ## Rollback principle
 
 Application code may be rolled back to the previous known-good Vercel deployment, but do not automatically roll back destructive database migrations after live financial data exists. Restore from a verified backup only when a database rollback is genuinely required and the data impact has been assessed.
+
