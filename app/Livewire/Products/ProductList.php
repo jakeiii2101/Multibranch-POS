@@ -5,6 +5,8 @@ namespace App\Livewire\Products;
 use App\Models\Category;
 use App\Models\Product;
 use App\Support\Audit;
+use App\Support\LegacyStockMirror;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -121,67 +123,72 @@ class ProductList extends Component
             'is_senior_pwd_discount_eligible' => $validated['isSeniorPwdDiscountEligible'],
         ];
 
-        if ($this->editingId !== null) {
-            $product = Product::query()->findOrFail($this->editingId);
-            $before = $product->only([
-                'category_id',
-                'sku',
-                'barcode',
-                'name',
-                'cost_price',
-                'selling_price',
-                'low_stock_level',
-                'status',
-                'tax_type',
-                'is_senior_pwd_discount_eligible',
-            ]);
-            $oldSellingPrice = (string) $product->selling_price;
+        DB::transaction(function () use ($data, $validated): void {
+            if ($this->editingId !== null) {
+                $product = Product::query()->lockForUpdate()->findOrFail($this->editingId);
+                $previousStock = $product->stock_quantity;
+                $before = $product->only([
+                    'category_id',
+                    'sku',
+                    'barcode',
+                    'name',
+                    'cost_price',
+                    'selling_price',
+                    'low_stock_level',
+                    'status',
+                    'tax_type',
+                    'is_senior_pwd_discount_eligible',
+                ]);
+                $oldSellingPrice = (string) $product->selling_price;
 
-            $product->update($data);
-            $product->refresh();
+                $product->update($data);
+                $product->refresh();
+                app(LegacyStockMirror::class)->sync($product, $previousStock);
 
-            Audit::record(
-                'product.updated',
-                $product,
-                'Product updated.',
-                [
-                    'before' => $before,
-                    'after' => $product->only(array_keys($before)),
-                ],
-            );
-
-            if ($oldSellingPrice !== (string) $product->selling_price) {
                 Audit::record(
-                    'product.price_changed',
+                    'product.updated',
                     $product,
-                    'Product selling price changed.',
+                    'Product updated.',
                     [
-                        'old_selling_price' => $oldSellingPrice,
-                        'new_selling_price' => (string) $product->selling_price,
+                        'before' => $before,
+                        'after' => $product->only(array_keys($before)),
                     ],
                 );
+
+                if ($oldSellingPrice !== (string) $product->selling_price) {
+                    Audit::record(
+                        'product.price_changed',
+                        $product,
+                        'Product selling price changed.',
+                        [
+                            'old_selling_price' => $oldSellingPrice,
+                            'new_selling_price' => (string) $product->selling_price,
+                        ],
+                    );
+                }
+
+                session()->flash('success', 'Product updated successfully.');
+            } else {
+                $data['stock_quantity'] = $validated['stockQuantity'];
+                $product = Product::query()->create($data);
+                app(LegacyStockMirror::class)->sync($product, null);
+
+                Audit::record(
+                    'product.created',
+                    $product,
+                    'Product created.',
+                    [
+                        'sku' => $product->sku,
+                        'name' => $product->name,
+                        'selling_price' => (string) $product->selling_price,
+                        'stock_quantity' => $product->stock_quantity,
+                        'status' => $product->status,
+                    ],
+                );
+
+                session()->flash('success', 'Product created successfully.');
             }
-
-            session()->flash('success', 'Product updated successfully.');
-        } else {
-            $data['stock_quantity'] = $validated['stockQuantity'];
-            $product = Product::query()->create($data);
-
-            Audit::record(
-                'product.created',
-                $product,
-                'Product created.',
-                [
-                    'sku' => $product->sku,
-                    'name' => $product->name,
-                    'selling_price' => (string) $product->selling_price,
-                    'stock_quantity' => $product->stock_quantity,
-                    'status' => $product->status,
-                ],
-            );
-
-            session()->flash('success', 'Product created successfully.');
-        }
+        });
 
         $this->resetForm();
     }
@@ -195,17 +202,30 @@ class ProductList extends Component
             return;
         }
 
-        Audit::record(
-            'product.deleted',
-            $product,
-            'Product deleted before any inventory history existed.',
-            [
-                'sku' => $product->sku,
-                'name' => $product->name,
-            ],
-        );
+        $originalBranchId = DB::table('original_branch_inventory')->where('id', 1)->value('branch_id');
+        if ($product->branchProducts()
+            ->when($originalBranchId !== null, fn ($query) => $query->where('branch_id', '!=', $originalBranchId))
+            ->exists()) {
+            session()->flash('error', 'This product is assigned to another branch. Deactivate it instead.');
+            return;
+        }
 
-        $product->delete();
+        DB::transaction(function () use ($product): void {
+            $product = Product::query()->lockForUpdate()->findOrFail($product->id);
+            app(LegacyStockMirror::class)->remove($product);
+
+            Audit::record(
+                'product.deleted',
+                $product,
+                'Product deleted before any inventory history existed.',
+                [
+                    'sku' => $product->sku,
+                    'name' => $product->name,
+                ],
+            );
+
+            $product->delete();
+        });
 
         if ($this->editingId === $productId) {
             $this->resetForm();

@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Livewire\Sales\PartialRefundPanel;
 use App\Models\Category;
+use App\Models\Branch;
+use App\Models\BranchProduct;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleAdjustment;
@@ -11,6 +13,7 @@ use App\Models\StockMovement;
 use App\Models\User;
 use App\Support\SaleReversalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -43,6 +46,23 @@ class PartialRefundTest extends TestCase
         $this->assertSame(8, $product->fresh()->stock_quantity);
         $this->assertDatabaseHas('stock_movements', ['type' => StockMovement::TYPE_REFUND, 'quantity' => 1]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'sale.partial_refund', 'auditable_id' => $sale->id]);
+    }
+
+    public function test_partial_refund_restock_mirrors_original_branch(): void
+    {
+        $admin = User::factory()->admin()->create();
+        [$sale, $product] = $this->createSale($admin);
+        $branch = Branch::factory()->create();
+        $balance = BranchProduct::factory()->for($branch)->for($product)->create(['on_hand' => 7]);
+        DB::table('original_branch_inventory')->insert(['id' => 1, 'branch_id' => $branch->id, 'activated_at' => now()]);
+
+        $this->actingAs($admin);
+        $itemId = $sale->items->firstOrFail()->id;
+        app(\App\Support\PartialRefundService::class)->refund($sale, $admin, [$itemId => 1], 'Customer returned sealed unit', true);
+
+        $this->assertSame(8, $product->fresh()->stock_quantity);
+        $this->assertSame(8, $balance->fresh()->on_hand);
+        $this->assertDatabaseHas('stock_movements', ['type' => StockMovement::TYPE_REFUND, 'branch_id' => $branch->id]);
     }
 
     public function test_refund_cannot_exceed_the_remaining_quantity(): void

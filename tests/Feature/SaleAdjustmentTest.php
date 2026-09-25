@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Livewire\Sales\SaleAdjustmentPanel;
 use App\Livewire\Sales\SalesHistory;
 use App\Models\Category;
+use App\Models\Branch;
+use App\Models\BranchProduct;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleAdjustment;
@@ -13,6 +15,7 @@ use App\Models\User;
 use App\Support\SaleReversalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -50,6 +53,22 @@ class SaleAdjustmentTest extends TestCase
             'stock_after' => 10,
         ]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'sale.void', 'auditable_id' => $sale->id]);
+    }
+
+    public function test_full_reversal_restock_mirrors_original_branch(): void
+    {
+        $admin = User::factory()->admin()->create();
+        [$sale, $product] = $this->createSale($admin, now());
+        $branch = Branch::factory()->create();
+        $balance = BranchProduct::factory()->for($branch)->for($product)->create(['on_hand' => 8]);
+        DB::table('original_branch_inventory')->insert(['id' => 1, 'branch_id' => $branch->id, 'activated_at' => now()]);
+
+        $this->actingAs($admin);
+        app(SaleReversalService::class)->reverse($sale, $admin, SaleAdjustment::TYPE_VOID, 'Duplicate sale reversed', true);
+
+        $this->assertSame(10, $product->fresh()->stock_quantity);
+        $this->assertSame(10, $balance->fresh()->on_hand);
+        $this->assertDatabaseHas('stock_movements', ['type' => StockMovement::TYPE_VOID, 'branch_id' => $branch->id]);
     }
 
     public function test_refund_can_record_non_restockable_items(): void

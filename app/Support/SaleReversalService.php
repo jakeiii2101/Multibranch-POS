@@ -71,9 +71,11 @@ class SaleReversalService
                     $before = $product->stock_quantity;
                     $after = $before + $item->quantity;
                     $product->update(['stock_quantity' => $after]);
+                    $branchId = app(LegacyStockMirror::class)->sync($product, $before);
 
                     StockMovement::query()->create([
                         'product_id' => $product->id,
+                        'branch_id' => $branchId,
                         'user_id' => $authorizer->id,
                         'type' => $type === SaleAdjustment::TYPE_VOID ? StockMovement::TYPE_VOID : StockMovement::TYPE_REFUND,
                         'quantity' => $item->quantity,
