@@ -3,6 +3,7 @@
 use App\Http\Controllers\ComplianceFilesController;
 use App\Http\Controllers\ReportsExportController;
 use App\Livewire\Audit\AuditLogList;
+use App\Livewire\Branches\BranchManagement;
 use App\Livewire\Categories\CategoryList;
 use App\Livewire\Dashboard\DashboardOverview;
 use App\Livewire\Inventory\InventoryList;
@@ -65,6 +66,7 @@ Route::middleware(['auth', 'active', 'role:admin,cashier'])->group(function () {
 });
 
 Route::middleware(['auth', 'active', 'role:admin'])->group(function () {
+    Route::get('branch-management', BranchManagement::class)->name('branch-management');
     Route::get('categories', CategoryList::class)->name('categories');
     Route::get('products', ProductList::class)->name('products');
     Route::get('inventory', InventoryList::class)->name('inventory');
