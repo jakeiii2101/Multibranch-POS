@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 #[Fillable([
     'registered_name',
+    'branch_id',
     'trade_name',
     'tin',
     'branch_code',

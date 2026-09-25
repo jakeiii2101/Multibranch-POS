@@ -3,15 +3,17 @@
 namespace App\Support;
 
 use App\Models\BirSetting;
+use App\Models\Branch;
 use App\Models\InvoiceSequence;
 use Illuminate\Validation\ValidationException;
 
 class InvoiceNumberService
 {
     /** @return array{invoice_number:string, setting:BirSetting} */
-    public function next(): array
+    public function next(?Branch $branch = null): array
     {
-        $setting = BirSetting::query()->where('is_active', true)->first();
+        $setting = BirSetting::query()->where('is_active', true)
+            ->where('branch_id', $branch?->id)->first();
 
         if ($setting === null) {
             throw ValidationException::withMessages([
@@ -21,6 +23,7 @@ class InvoiceNumberService
 
         $sequence = InvoiceSequence::query()
             ->where('document_type', InvoiceSequence::TYPE_SALES_INVOICE)
+            ->where('branch_id', $branch?->id)
             ->where('branch_code', $setting->branch_code)
             ->where('is_active', true)
             ->lockForUpdate()
