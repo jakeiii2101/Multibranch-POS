@@ -45,6 +45,11 @@ class Product extends Model
         return $this->hasMany(StockMovement::class);
     }
 
+    public function branchProducts(): HasMany
+    {
+        return $this->hasMany(BranchProduct::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;
