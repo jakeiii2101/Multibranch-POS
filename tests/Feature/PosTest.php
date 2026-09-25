@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Livewire\Pos\SaleTerminal;
 use App\Models\BirSetting;
+use App\Models\Branch;
+use App\Models\BranchProduct;
 use App\Models\Category;
 use App\Models\InvoiceSequence;
 use App\Models\Payment;
@@ -12,6 +14,7 @@ use App\Models\Sale;
 use App\Models\StockMovement;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -88,6 +91,31 @@ class PosTest extends TestCase
             'action' => 'sale.completed',
             'auditable_type' => Sale::class,
             'auditable_id' => $sale->id,
+        ]);
+    }
+
+    public function test_checkout_updates_original_branch_balance_when_mirror_is_active(): void
+    {
+        $cashier = User::factory()->create();
+        $this->configureBirInvoicing();
+        $product = $this->createProduct('MIRROR-001', 'Mirror Product', 100, 5);
+        $branch = Branch::factory()->create();
+        $balance = BranchProduct::factory()->for($branch)->for($product)->create(['on_hand' => 5]);
+        DB::table('original_branch_inventory')->insert(['id' => 1, 'branch_id' => $branch->id, 'activated_at' => now()]);
+
+        Livewire::actingAs($cashier)->test(SaleTerminal::class)
+            ->call('addProduct', $product->id)
+            ->set('cashReceived', '100.00')
+            ->call('completeSale')
+            ->assertHasNoErrors();
+
+        $this->assertSame(4, $product->fresh()->stock_quantity);
+        $this->assertSame(4, $balance->fresh()->on_hand);
+        $this->assertDatabaseHas('stock_movements', [
+            'product_id' => $product->id,
+            'branch_id' => $branch->id,
+            'type' => StockMovement::TYPE_SALE,
+            'quantity' => -1,
         ]);
     }
 
