@@ -5,6 +5,7 @@ namespace App\Livewire\Inventory;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Support\Audit;
+use App\Support\LegacyStockMirror;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -76,9 +77,11 @@ class InventoryList extends Component
             }
 
             $product->update(['stock_quantity' => $after]);
+            $branchId = app(LegacyStockMirror::class)->sync($product, $before);
 
             $movement = StockMovement::query()->create([
                 'product_id' => $product->id,
+                'branch_id' => $branchId,
                 'user_id' => auth()->id(),
                 'type' => $validated['type'],
                 'quantity' => $change,

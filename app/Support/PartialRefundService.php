@@ -98,8 +98,10 @@ class PartialRefundService
                     $before = $product->stock_quantity;
                     $after = $before + $line['quantity'];
                     $product->update(['stock_quantity' => $after]);
+                    $branchId = app(LegacyStockMirror::class)->sync($product, $before);
                     StockMovement::query()->create([
                         'product_id' => $product->id,
+                        'branch_id' => $branchId,
                         'user_id' => $authorizer->id,
                         'type' => StockMovement::TYPE_REFUND,
                         'quantity' => $line['quantity'],
