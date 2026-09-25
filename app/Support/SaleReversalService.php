@@ -2,8 +2,6 @@
 
 namespace App\Support;
 
-use App\Models\DailyClosing;
-use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleAdjustment;
 use App\Models\StockMovement;
@@ -23,10 +21,6 @@ class SaleReversalService
             throw ValidationException::withMessages(['reversal' => 'Only a completed sale may be voided or refunded.']);
         }
 
-        if (DailyClosing::query()->whereDate('business_date', now())->exists()) {
-            throw ValidationException::withMessages(['reversal' => 'Today already has a Z-reading. Process reversals on the next open business date.']);
-        }
-
         if (! in_array($type, [SaleAdjustment::TYPE_VOID, SaleAdjustment::TYPE_REFUND], true)) {
             throw ValidationException::withMessages(['reversalType' => 'Invalid reversal type.']);
         }
@@ -37,6 +31,7 @@ class SaleReversalService
 
         return DB::transaction(function () use ($sale, $authorizer, $type, $reason, $restock): SaleAdjustment {
             $lockedSale = Sale::query()->with('items')->lockForUpdate()->findOrFail($sale->id);
+            $secondaryBranchId = app(SaleStockRestock::class)->assertOpen($lockedSale, 'reversal');
 
             if ($lockedSale->adjustment()->exists()) {
                 throw ValidationException::withMessages(['reversal' => 'This sale has already been voided or refunded.']);
@@ -63,24 +58,19 @@ class SaleReversalService
                         continue;
                     }
 
-                    $product = Product::query()->lockForUpdate()->find($item->product_id);
-                    if ($product === null) {
+                    $stock = app(SaleStockRestock::class)->restock($secondaryBranchId, $item->product_id, $item->quantity);
+                    if ($stock === null) {
                         continue;
                     }
 
-                    $before = $product->stock_quantity;
-                    $after = $before + $item->quantity;
-                    $product->update(['stock_quantity' => $after]);
-                    $branchId = app(LegacyStockMirror::class)->sync($product, $before);
-
                     StockMovement::query()->create([
-                        'product_id' => $product->id,
-                        'branch_id' => $branchId,
+                        'product_id' => $stock['product_id'],
+                        'branch_id' => $stock['branch_id'],
                         'user_id' => $authorizer->id,
                         'type' => $type === SaleAdjustment::TYPE_VOID ? StockMovement::TYPE_VOID : StockMovement::TYPE_REFUND,
                         'quantity' => $item->quantity,
-                        'stock_before' => $before,
-                        'stock_after' => $after,
+                        'stock_before' => $stock['before'],
+                        'stock_after' => $stock['after'],
                         'reference' => $lockedSale->invoice_number ?? $lockedSale->sale_number,
                         'reason' => ucfirst($type).': '.trim($reason),
                     ]);
