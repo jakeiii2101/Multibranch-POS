@@ -11,6 +11,8 @@ use App\Livewire\Dashboard\DashboardOverview;
 use App\Livewire\Inventory\InventoryList;
 use App\Livewire\Inventory\BranchInventory;
 use App\Livewire\Pos\SaleTerminal;
+use App\Livewire\Pos\BranchSaleTerminal;
+use App\Support\LegacyStockMirror;
 use App\Livewire\Products\ProductList;
 use App\Livewire\Reports\DailyReadings;
 use App\Livewire\Reports\BranchDailyReadings;
@@ -68,8 +70,17 @@ Route::middleware(['auth', 'active'])->group(function () {
 
 Route::middleware(['auth', 'active', 'role:admin,cashier'])->group(function () {
     Route::get('pos', SaleTerminal::class)->name('pos');
+    Route::get('pos/select', function (Request $request) {
+        $originalId = app(LegacyStockMirror::class)->activeBranchId();
+        $branches = Branch::query()->where('status', Branch::STATUS_ACTIVE)->orderBy('name')->get()
+            ->filter(fn (Branch $branch) => $request->user()->canAccessBranch($branch));
 
-    Route::get('sales/{sale}/invoice', function (Sale $sale) {
+        return view('pos.select', compact('branches', 'originalId'));
+    })->name('pos.select');
+    Route::get('pos/branches/{branch}', BranchSaleTerminal::class)->name('pos.branch');
+
+    Route::get('sales/{sale}/invoice', function (Request $request, Sale $sale) {
+        abort_unless($request->user()->isAdmin() || $sale->user_id === $request->user()->id, 404);
         $sale->load(['items', 'user', 'payment', 'adjustment.authorizedBy', 'refunds.items']);
 
         return view('sales.receipt', compact('sale'));

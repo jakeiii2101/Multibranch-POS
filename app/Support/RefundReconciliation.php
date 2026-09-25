@@ -8,11 +8,13 @@ use Illuminate\Support\Carbon;
 class RefundReconciliation
 {
     /** @return array<string, float|int> */
-    public function between(Carbon $start, Carbon $end, ?int $branchId = null): array
+    public function between(Carbon $start, Carbon $end, ?int $branchId = null, bool $includeNull = false): array
     {
         $totals = SaleRefund::query()
             ->whereBetween('processed_at', [$start, $end])
-            ->when($branchId !== null, fn ($query) => $query->whereHas('sale', fn ($sales) => $sales->where('branch_id', $branchId)))
+            ->when($branchId !== null || $includeNull, fn ($query) => $query->whereHas('sale', fn ($sales) => $sales
+                ->where(fn ($scope) => $scope->when($branchId !== null, fn ($scope) => $scope->where('branch_id', $branchId))
+                    ->when($includeNull, fn ($scope) => $scope->orWhereNull('branch_id')))))
             ->selectRaw(
                 'COUNT(*) as refund_count, COALESCE(SUM(gross_amount), 0) as gross_amount, '
                 .'COALESCE(SUM(discount_amount), 0) as discount_amount, COALESCE(SUM(vat_exemption_amount), 0) as vat_exemption_amount, '

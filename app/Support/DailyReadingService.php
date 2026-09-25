@@ -18,7 +18,10 @@ class DailyReadingService
     {
         $start = $date->copy()->startOfDay();
         $end = $date->copy()->endOfDay();
-        $allSales = Sale::query()
+        $originalId = app(LegacyStockMirror::class)->activeBranchId();
+        $scopeSales = fn ($query) => $query->whereNull('branch_id')
+            ->when($originalId !== null, fn ($query) => $query->orWhere('branch_id', $originalId));
+        $allSales = Sale::query()->where($scopeSales)
             ->where('status', Sale::STATUS_COMPLETED)
             ->whereBetween('completed_at', [$start, $end]);
         $activeSales = (clone $allSales)->whereDoesntHave('adjustment');
@@ -38,16 +41,16 @@ class DailyReadingService
                 'tendered' => round((float) $row->tendered, 2),
                 'change_due' => round((float) $row->change_due, 2),
             ]])->all();
-        $reversals = SaleAdjustment::query()
+        $reversals = SaleAdjustment::query()->whereHas('sale', $scopeSales)
             ->whereBetween('processed_at', [$start, $end])
             ->selectRaw("COUNT(*) as count, COALESCE(SUM(amount), 0) as amount, COALESCE(SUM(CASE WHEN type = 'void' THEN amount ELSE 0 END), 0) as void_amount, COALESCE(SUM(CASE WHEN type = 'refund' THEN amount ELSE 0 END), 0) as refund_amount")
             ->first();
-        $partialRefunds = app(RefundReconciliation::class)->between($start, $end);
+        $partialRefunds = app(RefundReconciliation::class)->between($start, $end, $originalId, true);
 
         return [
             'business_date' => $date->toDateString(),
             'generated_at' => now()->toIso8601String(),
-            'seller' => BirSetting::query()->where('is_active', true)->first()?->invoiceSnapshot() ?? [],
+            'seller' => BirSetting::query()->whereNull('branch_id')->where('is_active', true)->first()?->invoiceSnapshot() ?? [],
             'invoice_range' => [
                 'first' => $invoiceRange->first_invoice,
                 'last' => $invoiceRange->last_invoice,

@@ -36,7 +36,7 @@ new class extends Component
             @php
                 $items = [
                     ['route' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'dashboard'],
-                    ['route' => 'pos', 'label' => 'POS', 'icon' => 'cart'],
+                    ['route' => 'pos.select', 'label' => 'POS', 'icon' => 'cart'],
                 ];
 
                 if (auth()->user()->isAdmin()) {
@@ -63,7 +63,7 @@ new class extends Component
                         ['route' => 'branch-inventory', 'label' => 'Branch Inventory', 'icon' => 'inventory'],
                     ];
                 } elseif (auth()->user()->isCashier()) {
-                    $items = [['route' => 'pos', 'label' => 'POS', 'icon' => 'cart']];
+                    $items = [['route' => 'pos.select', 'label' => 'POS', 'icon' => 'cart']];
                 }
             @endphp
 
