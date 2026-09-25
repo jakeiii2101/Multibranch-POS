@@ -9,6 +9,7 @@ use App\Http\Middleware\RedirectBranchDashboard;
 use App\Livewire\Categories\CategoryList;
 use App\Livewire\Dashboard\DashboardOverview;
 use App\Livewire\Inventory\InventoryList;
+use App\Livewire\Inventory\BranchInventory;
 use App\Livewire\Pos\SaleTerminal;
 use App\Livewire\Products\ProductList;
 use App\Livewire\Reports\DailyReadings;
@@ -32,6 +33,10 @@ Route::get('dashboard', DashboardOverview::class)
 Route::get('branch-monitor', BranchMonitor::class)
     ->middleware(['auth', 'active', 'verified', 'role:admin,manager,supervisor'])
     ->name('branch-monitor');
+
+Route::get('branch-inventory', BranchInventory::class)
+    ->middleware(['auth', 'active', 'verified', 'role:admin,manager,supervisor'])
+    ->name('branch-inventory');
 
 Route::view('profile', 'profile')
     ->middleware(['auth', 'active'])
