@@ -48,6 +48,7 @@ new class extends Component
                         ['route' => 'reports', 'label' => 'Reports', 'icon' => 'chart'],
                         ['route' => 'daily-readings', 'label' => 'Daily Readings', 'icon' => 'audit'],
                         ['route' => 'users', 'label' => 'Users', 'icon' => 'users'],
+                        ['route' => 'branch-management', 'label' => 'Branches', 'icon' => 'users'],
                         ['route' => 'audit-logs', 'label' => 'Audit Log', 'icon' => 'audit'],
                         ['route' => 'settings.bir', 'label' => 'BIR Settings', 'icon' => 'settings'],
                         ['route' => 'settings.readiness', 'label' => 'System Readiness', 'icon' => 'audit'],

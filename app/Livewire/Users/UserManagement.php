@@ -62,7 +62,7 @@ class UserManagement extends Component
         $rules = [
             'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($this->editingId)],
-            'role' => ['required', Rule::in([User::ROLE_ADMIN, User::ROLE_CASHIER])],
+            'role' => ['required', Rule::in([User::ROLE_ADMIN, User::ROLE_MANAGER, User::ROLE_SUPERVISOR, User::ROLE_CASHIER])],
             'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_INACTIVE])],
         ];
 
@@ -94,6 +94,12 @@ class UserManagement extends Component
             if ($this->wouldRemoveLastActiveAdmin($user, $validated['role'], $validated['status'])) {
                 $field = $validated['role'] !== User::ROLE_ADMIN ? 'role' : 'status';
                 $this->addError($field, 'At least one active administrator must remain.');
+                return;
+            }
+
+            if (in_array($validated['role'], [User::ROLE_SUPERVISOR, User::ROLE_CASHIER], true)
+                && $user->branches()->wherePivot('status', 'active')->count() > 1) {
+                $this->addError('role', 'Remove extra branch assignments before assigning this role.');
                 return;
             }
 

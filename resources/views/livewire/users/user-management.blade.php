@@ -3,7 +3,7 @@
         <div>
             <div class="sniper-kicker">Access Control</div>
             <h1 class="sniper-title mt-1">Users</h1>
-            <p class="sniper-subtitle">Manage administrator and cashier access with clear role and account status visibility.</p>
+            <p class="sniper-subtitle">Manage administrator, manager, supervisor, and cashier accounts. Assign their branches on the Branches page.</p>
         </div>
         <button type="button" wire:click="create" class="sniper-btn-primary">+ Add User</button>
     </div>
@@ -16,7 +16,7 @@
             <div class="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                 <div><x-input-label for="user-name" value="Name" /><x-text-input id="user-name" wire:model="name" type="text" class="mt-1.5 block w-full" /><x-input-error :messages="$errors->get('name')" class="mt-2" /></div>
                 <div><x-input-label for="user-email" value="Email" /><x-text-input id="user-email" wire:model="email" type="email" class="mt-1.5 block w-full" /><x-input-error :messages="$errors->get('email')" class="mt-2" /></div>
-                <div><x-input-label for="user-role" value="Role" /><select id="user-role" wire:model="role" class="mt-1.5 block w-full"><option value="cashier">Cashier</option><option value="admin">Admin</option></select><x-input-error :messages="$errors->get('role')" class="mt-2" /></div>
+                <div><x-input-label for="user-role" value="Role" /><select id="user-role" wire:model="role" class="mt-1.5 block w-full"><option value="cashier">Cashier</option><option value="supervisor">Supervisor</option><option value="manager">Manager</option><option value="admin">Admin</option></select><x-input-error :messages="$errors->get('role')" class="mt-2" /></div>
                 <div><x-input-label for="user-status" value="Status" /><select id="user-status" wire:model="status" class="mt-1.5 block w-full"><option value="active">Active</option><option value="inactive">Inactive</option></select><x-input-error :messages="$errors->get('status')" class="mt-2" /></div>
                 <div><x-input-label for="user-password" :value="$editingId ? 'New Password (optional)' : 'Password'" /><x-text-input id="user-password" wire:model="password" type="password" class="mt-1.5 block w-full" autocomplete="new-password" /><x-input-error :messages="$errors->get('password')" class="mt-2" /></div>
                 <div><x-input-label for="user-password-confirmation" value="Confirm Password" /><x-text-input id="user-password-confirmation" wire:model="passwordConfirmation" type="password" class="mt-1.5 block w-full" autocomplete="new-password" /><x-input-error :messages="$errors->get('passwordConfirmation')" class="mt-2" /></div>
