@@ -73,7 +73,7 @@ class LegacyStockMirror
         $balance->delete();
     }
 
-    private function activeBranchId(): ?int
+    public function activeBranchId(): ?int
     {
         $branchId = DB::table('original_branch_inventory')->where('id', 1)->value('branch_id');
 

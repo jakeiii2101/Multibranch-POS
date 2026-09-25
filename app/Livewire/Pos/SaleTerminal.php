@@ -3,6 +3,7 @@
 namespace App\Livewire\Pos;
 
 use App\Models\BirSetting;
+use App\Models\Branch;
 use App\Models\DailyClosing;
 use App\Models\Payment;
 use App\Models\Product;
@@ -253,6 +254,16 @@ class SaleTerminal extends Component
         $paymentMethod = $validated['paymentMethod'];
 
         $sale = DB::transaction(function () use ($validated, $discountType, $discountValue, $paymentMethod, $invoiceNumberService, $calculator): Sale {
+            $branchId = app(LegacyStockMirror::class)->activeBranchId();
+            if ($branchId !== null) {
+                $branch = Branch::query()->whereKey($branchId)->lockForUpdate()->first();
+                if ($branch === null || ! $branch->isActive() || ! auth()->user()->canAccessBranch($branch)) {
+                    throw ValidationException::withMessages([
+                        'cart' => 'Checkout requires access to the active original branch. Ask an administrator to assign your branch.',
+                    ]);
+                }
+            }
+
             if (DailyClosing::query()->whereDate('business_date', now())->lockForUpdate()->exists()) {
                 throw ValidationException::withMessages([
                     'cart' => 'Today already has a Z-reading. New sales are locked for this business date.',
@@ -341,6 +352,7 @@ class SaleTerminal extends Component
                 'sale_number' => $invoice['invoice_number'],
                 'invoice_number' => $invoice['invoice_number'],
                 'user_id' => auth()->id(),
+                'branch_id' => $branchId,
                 'subtotal' => $subtotal,
                 'discount_type' => $discountType,
                 'discount_value' => $discountType === null ? 0 : $discountValue,

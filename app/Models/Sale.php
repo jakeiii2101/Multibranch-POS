@@ -14,6 +14,7 @@ use LogicException;
     'sale_number',
     'invoice_number',
     'user_id',
+    'branch_id',
     'subtotal',
     'discount_type',
     'discount_value',
@@ -55,6 +56,11 @@ class Sale extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(SaleItem::class);
@@ -92,6 +98,7 @@ class Sale extends Model
                 'sale_number',
                 'invoice_number',
                 'user_id',
+                'branch_id',
                 'subtotal',
                 'discount_type',
                 'discount_value',
