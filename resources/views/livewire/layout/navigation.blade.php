@@ -49,6 +49,7 @@ new class extends Component
                         ['route' => 'sales', 'label' => 'Sales', 'icon' => 'sales'],
                         ['route' => 'reports', 'label' => 'Reports', 'icon' => 'chart'],
                         ['route' => 'daily-readings', 'label' => 'Daily Readings', 'icon' => 'audit'],
+                        ['route' => 'branch-daily-readings', 'label' => 'Branch Readings', 'icon' => 'audit'],
                         ['route' => 'users', 'label' => 'Users', 'icon' => 'users'],
                         ['route' => 'branch-management', 'label' => 'Branches', 'icon' => 'users'],
                         ['route' => 'audit-logs', 'label' => 'Audit Log', 'icon' => 'audit'],
