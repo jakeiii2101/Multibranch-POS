@@ -5,6 +5,7 @@ namespace App\Livewire\Dashboard;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleRefundItem;
+use App\Models\User;
 use App\Support\RefundReconciliation;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -16,9 +17,13 @@ class DashboardOverview extends Component
     public function boot(): void
     {
         abort_unless(
-            auth()->check() && auth()->user()->isActive(),
+            auth()->check() && auth()->user()->isActive()
+                && (auth()->user()->isAdmin() || auth()->user()->isCashier()),
             403,
         );
+
+        abort_if(auth()->user()->role === User::ROLE_CASHIER
+            && DB::table('original_branch_inventory')->exists(), 403);
     }
 
     public function render()

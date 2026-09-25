@@ -4,6 +4,8 @@ use App\Http\Controllers\ComplianceFilesController;
 use App\Http\Controllers\ReportsExportController;
 use App\Livewire\Audit\AuditLogList;
 use App\Livewire\Branches\BranchManagement;
+use App\Livewire\Branches\BranchMonitor;
+use App\Http\Middleware\RedirectBranchDashboard;
 use App\Livewire\Categories\CategoryList;
 use App\Livewire\Dashboard\DashboardOverview;
 use App\Livewire\Inventory\InventoryList;
@@ -24,8 +26,12 @@ use Illuminate\Support\Facades\Route;
 Route::view('/', 'welcome');
 
 Route::get('dashboard', DashboardOverview::class)
-    ->middleware(['auth', 'active', 'verified'])
+    ->middleware(['auth', 'active', 'verified', RedirectBranchDashboard::class])
     ->name('dashboard');
+
+Route::get('branch-monitor', BranchMonitor::class)
+    ->middleware(['auth', 'active', 'verified', 'role:admin,manager,supervisor'])
+    ->name('branch-monitor');
 
 Route::view('profile', 'profile')
     ->middleware(['auth', 'active'])
