@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Models\BirSetting;
-use App\Models\DailyClosing;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
@@ -31,12 +30,9 @@ class PartialRefundService
             throw ValidationException::withMessages(['reason' => 'The refund reason must be at least 10 characters.']);
         }
 
-        if (DailyClosing::query()->whereDate('business_date', now())->exists()) {
-            throw ValidationException::withMessages(['partialRefund' => 'Today already has a Z-reading. Process refunds on the next open business date.']);
-        }
-
         return DB::transaction(function () use ($sale, $authorizer, $quantities, $reason, $restock): SaleRefund {
             $lockedSale = Sale::query()->with(['items', 'refunds.items'])->lockForUpdate()->findOrFail($sale->id);
+            $secondaryBranchId = app(SaleStockRestock::class)->assertOpen($lockedSale, 'partialRefund');
             if ($lockedSale->adjustment()->exists()) {
                 throw ValidationException::withMessages(['partialRefund' => 'A voided or fully refunded sale cannot receive a partial refund.']);
             }
@@ -94,19 +90,16 @@ class PartialRefundService
                     'refund_amount' => $line['refund_amount'],
                 ]);
 
-                if ($restock && $item->product_id !== null && ($product = Product::query()->lockForUpdate()->find($item->product_id)) !== null) {
-                    $before = $product->stock_quantity;
-                    $after = $before + $line['quantity'];
-                    $product->update(['stock_quantity' => $after]);
-                    $branchId = app(LegacyStockMirror::class)->sync($product, $before);
+                if ($restock && $item->product_id !== null
+                    && ($stock = app(SaleStockRestock::class)->restock($secondaryBranchId, $item->product_id, $line['quantity'])) !== null) {
                     StockMovement::query()->create([
-                        'product_id' => $product->id,
-                        'branch_id' => $branchId,
+                        'product_id' => $stock['product_id'],
+                        'branch_id' => $stock['branch_id'],
                         'user_id' => $authorizer->id,
                         'type' => StockMovement::TYPE_REFUND,
                         'quantity' => $line['quantity'],
-                        'stock_before' => $before,
-                        'stock_after' => $after,
+                        'stock_before' => $stock['before'],
+                        'stock_after' => $stock['after'],
                         'reference' => $refund->refund_number,
                         'reason' => 'Partial refund: '.trim($reason),
                     ]);
