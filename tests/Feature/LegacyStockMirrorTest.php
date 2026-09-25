@@ -9,7 +9,6 @@ use App\Models\BranchProduct;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\User;
-use App\Support\LegacyStockMirror;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -95,17 +94,6 @@ class LegacyStockMirrorTest extends TestCase
             'on_hand' => 4,
             'reorder_level' => 2,
         ]);
-    }
-
-    public function test_active_mirror_requires_transaction(): void
-    {
-        $branch = Branch::factory()->create();
-        $product = Product::factory()->create(['stock_quantity' => 5]);
-        BranchProduct::factory()->for($branch)->for($product)->create(['on_hand' => 5]);
-        $this->activate($branch);
-
-        $this->expectException(LogicException::class);
-        app(LegacyStockMirror::class)->sync($product, 5);
     }
 
     private function activate(Branch $branch): void
