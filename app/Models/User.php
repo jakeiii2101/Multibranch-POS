@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -20,6 +21,31 @@ class User extends Authenticatable
     public const ROLE_ADMIN = 'admin';
 
     public const ROLE_CASHIER = 'cashier';
+
+    public const ROLE_MANAGER = 'manager';
+
+    public const ROLE_SUPERVISOR = 'supervisor';
+
+    public function branches(): BelongsToMany
+    {
+        return $this->belongsToMany(Branch::class)->withPivot('status')->withTimestamps();
+    }
+
+    public function canAccessBranch(Branch $branch): bool
+    {
+        if (! $this->isActive()) {
+            return false;
+        }
+
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        return $branch->isActive() && $this->branches()
+            ->whereKey($branch->getKey())
+            ->wherePivot('status', Branch::STATUS_ACTIVE)
+            ->exists();
+    }
 
     public const STATUS_ACTIVE = 'active';
 

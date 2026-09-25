@@ -16,12 +16,13 @@ class ReleaseSecurityTest extends TestCase
             ->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     }
 
-    public function test_environment_template_targets_sniperpos_https_and_secure_sessions(): void
+    public function test_environment_template_uses_neutral_local_url_and_secure_sessions(): void
     {
         $environment = file_get_contents(base_path('.env.example'));
 
         $this->assertStringContainsString('APP_NAME="SniperPOS"', $environment);
-        $this->assertStringContainsString('APP_URL=https://psychic-succotash-g4r7vr95prvq3vjr6-8080.app.github.dev', $environment);
+        $this->assertStringContainsString('APP_URL=http://localhost:8080', $environment);
+        $this->assertStringNotContainsString('app.github.dev', $environment);
         $this->assertStringContainsString('DB_CONNECTION=mysql', $environment);
         $this->assertStringContainsString('SESSION_SECURE_COOKIE=true', $environment);
         $this->assertStringContainsString('SESSION_HTTP_ONLY=true', $environment);

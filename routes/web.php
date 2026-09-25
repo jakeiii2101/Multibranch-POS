@@ -14,8 +14,10 @@ use App\Livewire\Sales\SalesHistory;
 use App\Livewire\Settings\BirSettings;
 use App\Livewire\Settings\SystemReadiness;
 use App\Livewire\Users\UserManagement;
+use App\Models\Branch;
 use App\Models\DailyClosing;
 use App\Models\Sale;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome');
@@ -27,6 +29,28 @@ Route::get('dashboard', DashboardOverview::class)
 Route::view('profile', 'profile')
     ->middleware(['auth', 'active'])
     ->name('profile');
+
+Route::middleware(['auth', 'active'])->group(function () {
+    Route::get('branches', function (Request $request) {
+        $user = $request->user();
+        $branches = Branch::query()
+            ->when(! $user->isAdmin(), fn ($query) => $query
+                ->where('status', Branch::STATUS_ACTIVE)
+                ->whereHas('users', fn ($users) => $users
+                    ->whereKey($user->getKey())
+                    ->where('branch_user.status', Branch::STATUS_ACTIVE)))
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'status']);
+
+        return response()->json($branches);
+    })->name('branches.index');
+
+    Route::get('branches/{branch}', function (Request $request, Branch $branch) {
+        abort_unless($request->user()->canAccessBranch($branch), 404);
+
+        return response()->json($branch->only(['id', 'code', 'name', 'address', 'timezone', 'status']));
+    })->name('branches.show');
+});
 
 Route::middleware(['auth', 'active', 'role:admin,cashier'])->group(function () {
     Route::get('pos', SaleTerminal::class)->name('pos');
