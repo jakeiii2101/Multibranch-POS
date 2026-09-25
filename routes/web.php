@@ -13,6 +13,7 @@ use App\Livewire\Inventory\BranchInventory;
 use App\Livewire\Pos\SaleTerminal;
 use App\Livewire\Products\ProductList;
 use App\Livewire\Reports\DailyReadings;
+use App\Livewire\Reports\BranchDailyReadings;
 use App\Livewire\Reports\ReportsDashboard;
 use App\Livewire\Sales\SalesHistory;
 use App\Livewire\Settings\BirSettings;
@@ -92,6 +93,7 @@ Route::middleware(['auth', 'active', 'role:admin'])->group(function () {
 
     Route::get('reports', ReportsDashboard::class)->name('reports');
     Route::get('daily-readings', DailyReadings::class)->name('daily-readings');
+    Route::get('branch-daily-readings', BranchDailyReadings::class)->name('branch-daily-readings');
     Route::get('daily-readings/{dailyClosing}/print', function (DailyClosing $dailyClosing) {
         $dailyClosing->load('closedBy');
 
