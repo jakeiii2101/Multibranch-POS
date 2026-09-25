@@ -53,6 +53,7 @@ new class extends Component
                         ['route' => 'branch-management', 'label' => 'Branches', 'icon' => 'users'],
                         ['route' => 'audit-logs', 'label' => 'Audit Log', 'icon' => 'audit'],
                         ['route' => 'settings.bir', 'label' => 'BIR Settings', 'icon' => 'settings'],
+                        ['route' => 'settings.branch-invoices', 'label' => 'Branch Invoices', 'icon' => 'settings'],
                         ['route' => 'settings.readiness', 'label' => 'System Readiness', 'icon' => 'audit'],
                     ]);
                 } elseif (in_array(auth()->user()->role, [\App\Models\User::ROLE_MANAGER, \App\Models\User::ROLE_SUPERVISOR], true)) {
