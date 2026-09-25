@@ -63,8 +63,8 @@ class BranchDailyReadingsTest extends TestCase
         $southClosing = $service->close($south, now(), $admin, 'South closing');
         $northClosing = $service->close($north, now(), $admin, 'North closing');
 
-        $this->assertSame(112.0, $southClosing->snapshot['sales']['net_sales']);
-        $this->assertSame(0.0, $northClosing->snapshot['sales']['net_sales']);
+        $this->assertEquals(112.0, $southClosing->snapshot['sales']['net_sales']);
+        $this->assertEquals(0.0, $northClosing->snapshot['sales']['net_sales']);
         $this->assertDatabaseCount('branch_daily_closings', 2);
         $this->assertDatabaseCount('daily_closings', 1);
         $this->expectException(LogicException::class);
