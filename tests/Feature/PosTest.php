@@ -57,6 +57,7 @@ class PosTest extends TestCase
         $this->assertSame('240.00', $sale->subtotal);
         $this->assertSame('SI-000000000001', $sale->invoice_number);
         $this->assertSame('SI-000000000001', $sale->sale_number);
+        $this->assertNull($sale->branch_id);
         $this->assertSame('214.29', $sale->vatable_sales);
         $this->assertSame('25.71', $sale->vat_amount);
         $this->assertNull($sale->discount_type);
@@ -101,6 +102,7 @@ class PosTest extends TestCase
         $product = $this->createProduct('MIRROR-001', 'Mirror Product', 100, 5);
         $branch = Branch::factory()->create();
         $balance = BranchProduct::factory()->for($branch)->for($product)->create(['on_hand' => 5]);
+        $branch->users()->attach($cashier->id, ['status' => Branch::STATUS_ACTIVE]);
         DB::table('original_branch_inventory')->insert(['id' => 1, 'branch_id' => $branch->id, 'activated_at' => now()]);
 
         Livewire::actingAs($cashier)->test(SaleTerminal::class)
@@ -111,12 +113,59 @@ class PosTest extends TestCase
 
         $this->assertSame(4, $product->fresh()->stock_quantity);
         $this->assertSame(4, $balance->fresh()->on_hand);
+        $this->assertSame($branch->id, Sale::query()->firstOrFail()->branch_id);
         $this->assertDatabaseHas('stock_movements', [
             'product_id' => $product->id,
             'branch_id' => $branch->id,
             'type' => StockMovement::TYPE_SALE,
             'quantity' => -1,
         ]);
+    }
+
+    public function test_unassigned_cashier_cannot_sell_after_original_branch_activation(): void
+    {
+        $cashier = User::factory()->create();
+        $this->configureBirInvoicing();
+        $product = $this->createProduct('BRANCH-DENY-001', 'Branch Limited Product', 100, 5);
+        $original = Branch::factory()->create();
+        $other = Branch::factory()->create();
+        $originalBalance = BranchProduct::factory()->for($original)->for($product)->create(['on_hand' => 5]);
+        $otherBalance = BranchProduct::factory()->for($other)->for($product)->create(['on_hand' => 12]);
+        $other->users()->attach($cashier->id, ['status' => Branch::STATUS_ACTIVE]);
+        DB::table('original_branch_inventory')->insert(['id' => 1, 'branch_id' => $original->id, 'activated_at' => now()]);
+
+        Livewire::actingAs($cashier)->test(SaleTerminal::class)
+            ->call('addProduct', $product->id)
+            ->set('cashReceived', '100.00')
+            ->call('completeSale')
+            ->assertHasErrors('cart');
+
+        $this->assertDatabaseCount('sales', 0);
+        $this->assertSame(5, $product->fresh()->stock_quantity);
+        $this->assertSame(5, $originalBalance->fresh()->on_hand);
+        $this->assertSame(12, $otherBalance->fresh()->on_hand);
+        $this->assertDatabaseCount('stock_movements', 0);
+    }
+
+    public function test_admin_can_sell_for_original_branch_without_assignment(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $this->configureBirInvoicing();
+        $product = $this->createProduct('BRANCH-ADMIN-001', 'Admin Product', 100, 5);
+        $branch = Branch::factory()->create();
+        BranchProduct::factory()->for($branch)->for($product)->create(['on_hand' => 5]);
+        DB::table('original_branch_inventory')->insert(['id' => 1, 'branch_id' => $branch->id, 'activated_at' => now()]);
+
+        Livewire::actingAs($admin)->test(SaleTerminal::class)
+            ->call('addProduct', $product->id)
+            ->set('cashReceived', '100.00')
+            ->call('completeSale')
+            ->assertHasNoErrors();
+
+        $sale = Sale::query()->firstOrFail();
+        $this->assertSame($branch->id, $sale->branch_id);
+        $this->expectException(\LogicException::class);
+        $sale->update(['branch_id' => null]);
     }
 
     public function test_fixed_discount_is_applied_and_persisted_server_side(): void
