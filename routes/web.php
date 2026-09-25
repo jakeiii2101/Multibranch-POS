@@ -16,6 +16,7 @@ use App\Livewire\Reports\DailyReadings;
 use App\Livewire\Reports\ReportsDashboard;
 use App\Livewire\Sales\SalesHistory;
 use App\Livewire\Settings\BirSettings;
+use App\Livewire\Settings\BranchInvoiceSettings;
 use App\Livewire\Settings\SystemReadiness;
 use App\Livewire\Users\UserManagement;
 use App\Models\Branch;
@@ -101,6 +102,7 @@ Route::middleware(['auth', 'active', 'role:admin'])->group(function () {
     Route::get('users', UserManagement::class)->name('users');
     Route::get('audit-logs', AuditLogList::class)->name('audit-logs');
     Route::get('settings/bir', BirSettings::class)->name('settings.bir');
+    Route::get('settings/branch-invoices', BranchInvoiceSettings::class)->name('settings.branch-invoices');
     Route::get('settings/readiness', SystemReadiness::class)->name('settings.readiness');
     Route::get('compliance/backups/{filename}', [ComplianceFilesController::class, 'backup'])->name('compliance.backup');
     Route::get('compliance/audit-export', [ComplianceFilesController::class, 'audit'])->name('compliance.audit');
