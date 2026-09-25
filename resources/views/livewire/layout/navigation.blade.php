@@ -42,6 +42,7 @@ new class extends Component
                 if (auth()->user()->isAdmin()) {
                     $items = array_merge($items, [
                         ['route' => 'branch-monitor', 'label' => 'Branch Monitor', 'icon' => 'chart'],
+                        ['route' => 'branch-inventory', 'label' => 'Branch Inventory', 'icon' => 'inventory'],
                         ['route' => 'products', 'label' => 'Products', 'icon' => 'box'],
                         ['route' => 'inventory', 'label' => 'Inventory', 'icon' => 'inventory'],
                         ['route' => 'categories', 'label' => 'Categories', 'icon' => 'tag'],
@@ -55,7 +56,10 @@ new class extends Component
                         ['route' => 'settings.readiness', 'label' => 'System Readiness', 'icon' => 'audit'],
                     ]);
                 } elseif (in_array(auth()->user()->role, [\App\Models\User::ROLE_MANAGER, \App\Models\User::ROLE_SUPERVISOR], true)) {
-                    $items = [['route' => 'branch-monitor', 'label' => 'Branch Monitor', 'icon' => 'chart']];
+                    $items = [
+                        ['route' => 'branch-monitor', 'label' => 'Branch Monitor', 'icon' => 'chart'],
+                        ['route' => 'branch-inventory', 'label' => 'Branch Inventory', 'icon' => 'inventory'],
+                    ];
                 } elseif (auth()->user()->isCashier()) {
                     $items = [['route' => 'pos', 'label' => 'POS', 'icon' => 'cart']];
                 }
