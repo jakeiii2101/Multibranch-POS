@@ -10,6 +10,7 @@ use App\Models\Sale;
 use App\Models\StockMovement;
 use App\Support\Audit;
 use App\Support\InvoiceNumberService;
+use App\Support\LegacyStockMirror;
 use App\Support\SaleTaxCalculator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -393,9 +394,11 @@ class SaleTerminal extends Component
                 ]);
 
                 $product->update(['stock_quantity' => $line['after']]);
+                $branchId = app(LegacyStockMirror::class)->sync($product, $line['before']);
 
                 StockMovement::query()->create([
                     'product_id' => $product->id,
+                    'branch_id' => $branchId,
                     'user_id' => auth()->id(),
                     'type' => StockMovement::TYPE_SALE,
                     'quantity' => -$line['quantity'],

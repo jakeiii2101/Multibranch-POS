@@ -8,6 +8,7 @@ on:
     branches:
       - main
       - chore/codespaces-baseline
+      - feat/branch-inventory-audit
 
 permissions:
   contents: read
