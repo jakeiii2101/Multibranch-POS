@@ -4,6 +4,8 @@ namespace App\Livewire\Pos;
 
 use App\Models\BirSetting;
 use App\Models\Branch;
+use App\Models\BranchDailyClosing;
+use App\Models\BranchProduct;
 use App\Models\DailyClosing;
 use App\Models\Payment;
 use App\Models\Product;
@@ -17,11 +19,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
 class SaleTerminal extends Component
 {
+    #[Locked]
+    public ?int $branchId = null;
+
     public string $search = '';
 
     /** @var array<int, array{id:int,name:string,sku:string,barcode:?string,price:float,quantity:int,stock:int}> */
@@ -92,7 +98,10 @@ class SaleTerminal extends Component
             ->where('status', Product::STATUS_ACTIVE)
             ->findOrFail($productId);
 
-        if ($product->stock_quantity < 1) {
+        $balance = $this->branchBalance($product);
+        $available = $this->branchId === null ? $product->stock_quantity : ($balance !== null && $balance->is_available ? $balance->on_hand - $balance->reserved : 0);
+
+        if ($available < 1) {
             $this->addError('cart', $product->name.' is out of stock.');
             return;
         }
@@ -107,9 +116,9 @@ class SaleTerminal extends Component
             'name' => $product->name,
             'sku' => $product->sku,
             'barcode' => $product->barcode,
-            'price' => (float) $product->selling_price,
+            'price' => (float) ($balance?->price_override ?? $product->selling_price),
             'quantity' => 1,
-            'stock' => $product->stock_quantity,
+            'stock' => $available,
             'tax_type' => $product->tax_type,
             'is_senior_pwd_discount_eligible' => $product->is_senior_pwd_discount_eligible,
         ];
@@ -126,13 +135,16 @@ class SaleTerminal extends Component
         $product = Product::query()->findOrFail($productId);
         $nextQuantity = $this->cart[$productId]['quantity'] + 1;
 
-        if ($nextQuantity > $product->stock_quantity) {
+        $balance = $this->branchBalance($product);
+        $available = $this->branchId === null ? $product->stock_quantity : ($balance !== null && $balance->is_available ? $balance->on_hand - $balance->reserved : 0);
+
+        if ($nextQuantity > $available) {
             $this->addError('cart', 'Not enough stock for '.$product->name.'.');
             return;
         }
 
         $this->cart[$productId]['quantity'] = $nextQuantity;
-        $this->cart[$productId]['stock'] = $product->stock_quantity;
+        $this->cart[$productId]['stock'] = $available;
         $this->resetErrorBag('cart');
     }
 
@@ -254,20 +266,20 @@ class SaleTerminal extends Component
         $paymentMethod = $validated['paymentMethod'];
 
         $sale = DB::transaction(function () use ($validated, $discountType, $discountValue, $paymentMethod, $invoiceNumberService, $calculator): Sale {
-            $branchId = app(LegacyStockMirror::class)->activeBranchId();
-            if ($branchId !== null) {
-                $branch = Branch::query()->whereKey($branchId)->lockForUpdate()->first();
-                if ($branch === null || ! $branch->isActive() || ! auth()->user()->canAccessBranch($branch)) {
-                    throw ValidationException::withMessages([
-                        'cart' => 'Checkout requires access to the active original branch. Ask an administrator to assign your branch.',
-                    ]);
-                }
+            $originalId = app(LegacyStockMirror::class)->activeBranchId();
+            $branchId = $this->branchId ?? $originalId;
+            $branch = $branchId === null ? null : Branch::query()->whereKey($branchId)->lockForUpdate()->first();
+            if ($this->branchId !== null && ($originalId === null || $branchId === $originalId)) {
+                throw ValidationException::withMessages(['cart' => 'This branch register is unavailable.']);
             }
-
-            if (DailyClosing::query()->whereDate('business_date', now())->lockForUpdate()->exists()) {
-                throw ValidationException::withMessages([
-                    'cart' => 'Today already has a Z-reading. New sales are locked for this business date.',
-                ]);
+            if ($branchId !== null && ($branch === null || ! $branch->isActive() || ! auth()->user()->canAccessBranch($branch))) {
+                throw ValidationException::withMessages(['cart' => 'Checkout requires access to the active branch.']);
+            }
+            $closed = $this->branchId === null
+                ? DailyClosing::query()->whereDate('business_date', now())->lockForUpdate()->exists()
+                : BranchDailyClosing::query()->where('branch_id', $branchId)->whereDate('business_date', now())->lockForUpdate()->exists();
+            if ($closed) {
+                throw ValidationException::withMessages(['cart' => 'Today already has a Z-reading for this register. New sales are locked.']);
             }
 
             $lines = [];
@@ -283,20 +295,26 @@ class SaleTerminal extends Component
                     ]);
                 }
 
-                if ($quantity > $product->stock_quantity) {
+                $balance = $this->branchId === null ? null : BranchProduct::query()
+                    ->where('branch_id', $branchId)->where('product_id', $product->id)
+                    ->lockForUpdate()->first();
+                $available = $this->branchId === null ? $product->stock_quantity
+                    : ($balance !== null && $balance->is_available ? $balance->on_hand - $balance->reserved : 0);
+                if ($quantity < 1 || $quantity > $available) {
                     throw ValidationException::withMessages([
-                        'cart' => 'Not enough stock for '.$product->name.'. Available: '.$product->stock_quantity.'.',
+                        'cart' => 'Not enough stock for '.$product->name.'. Available: '.$available.'.',
                     ]);
                 }
 
-                $before = $product->stock_quantity;
+                $before = $balance?->on_hand ?? $product->stock_quantity;
                 $after = $before - $quantity;
-                $unitPrice = round((float) $product->selling_price, 2);
+                $unitPrice = round((float) ($balance?->price_override ?? $product->selling_price), 2);
                 $lineTotal = round($unitPrice * $quantity, 2);
                 $subtotal = round($subtotal + $lineTotal, 2);
 
                 $lines[] = [
                     'product' => $product,
+                    'balance' => $balance,
                     'quantity' => $quantity,
                     'before' => $before,
                     'after' => $after,
@@ -313,7 +331,7 @@ class SaleTerminal extends Component
                 ]);
             }
 
-            $invoice = $invoiceNumberService->next();
+            $invoice = $invoiceNumberService->next($this->branchId === null ? null : $branch);
             $birSetting = $invoice['setting'];
             $calculation = $calculator->calculate($lines, $birSetting, $discountType, $discountValue);
             $lines = $calculation['lines'];
@@ -405,12 +423,17 @@ class SaleTerminal extends Component
                     'net_total' => $line['net_total'],
                 ]);
 
-                $product->update(['stock_quantity' => $line['after']]);
-                $branchId = app(LegacyStockMirror::class)->sync($product, $line['before']);
+                if ($this->branchId === null) {
+                    $product->update(['stock_quantity' => $line['after']]);
+                    $movementBranchId = app(LegacyStockMirror::class)->sync($product, $line['before']);
+                } else {
+                    $line['balance']->update(['on_hand' => $line['after']]);
+                    $movementBranchId = $branchId;
+                }
 
                 StockMovement::query()->create([
                     'product_id' => $product->id,
-                    'branch_id' => $branchId,
+                    'branch_id' => $movementBranchId,
                     'user_id' => auth()->id(),
                     'type' => StockMovement::TYPE_SALE,
                     'quantity' => -$line['quantity'],
@@ -458,7 +481,7 @@ class SaleTerminal extends Component
 
     private function previewTotals(): array
     {
-        $setting = BirSetting::query()->where('is_active', true)->first();
+        $setting = BirSetting::query()->where('branch_id', $this->branchId)->where('is_active', true)->first();
         if ($setting === null || $this->cart === []) {
             return ['discount_amount' => 0.0, 'vat_exemption_amount' => 0.0, 'total' => $this->cartSubtotal()];
         }
@@ -509,13 +532,41 @@ class SaleTerminal extends Component
         return $value === '' ? null : $value;
     }
 
+    protected function branchBalance(Product $product): ?BranchProduct
+    {
+        if ($this->branchId === null) {
+            return null;
+        }
+        $this->assertBranchAccess();
+
+        return BranchProduct::query()->where('branch_id', $this->branchId)
+            ->where('product_id', $product->id)->first();
+    }
+
+    protected function assertBranchAccess(): void
+    {
+        if ($this->branchId === null) {
+            return;
+        }
+        $branch = Branch::query()->find($this->branchId);
+        abort_unless($branch !== null && $branch->isActive()
+            && app(LegacyStockMirror::class)->activeBranchId() !== null
+            && app(LegacyStockMirror::class)->activeBranchId() !== $branch->id
+            && auth()->user()->canAccessBranch($branch), 403);
+    }
+
     public function render()
     {
+        $this->assertBranchAccess();
         $term = trim($this->search);
 
         $products = Product::query()
             ->where('status', Product::STATUS_ACTIVE)
-            ->where('stock_quantity', '>', 0)
+            ->when($this->branchId === null, fn ($query) => $query->where('stock_quantity', '>', 0))
+            ->when($this->branchId !== null, fn ($query) => $query->whereHas('branchProducts', fn ($balances) => $balances
+                ->where('branch_id', $this->branchId)->where('is_available', true)
+                ->whereColumn('on_hand', '>', 'reserved'))
+                ->with(['branchProducts' => fn ($balances) => $balances->where('branch_id', $this->branchId)]))
             ->when($term !== '', function ($query) use ($term): void {
                 $query->where(function ($query) use ($term): void {
                     $query->where('name', 'like', '%'.$term.'%')
@@ -539,6 +590,7 @@ class SaleTerminal extends Component
 
         return view('livewire.pos.sale-terminal', [
             'products' => $products,
+            'registerBranch' => $this->branchId === null ? null : Branch::query()->findOrFail($this->branchId),
             'subtotal' => $subtotal,
             'discountAmount' => $discountAmount,
             'vatExemptionAmount' => $vatExemptionAmount,
