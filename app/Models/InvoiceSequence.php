@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 #[Fillable([
     'document_type',
+    'branch_id',
     'branch_code',
     'prefix',
     'current_number',

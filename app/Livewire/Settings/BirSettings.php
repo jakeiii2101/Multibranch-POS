@@ -54,7 +54,7 @@ class BirSettings extends Component
 
     public function mount(): void
     {
-        $setting = BirSetting::query()->latest('id')->first();
+        $setting = BirSetting::query()->whereNull('branch_id')->latest('id')->first();
 
         if ($setting === null) {
             return;
@@ -75,6 +75,7 @@ class BirSettings extends Component
 
         $sequence = InvoiceSequence::query()
             ->where('document_type', InvoiceSequence::TYPE_SALES_INVOICE)
+            ->whereNull('branch_id')
             ->where('branch_code', $setting->branch_code)
             ->first();
 
@@ -112,6 +113,7 @@ class BirSettings extends Component
         DB::transaction(function () use ($validated): void {
             $sequence = InvoiceSequence::query()
                 ->where('document_type', InvoiceSequence::TYPE_SALES_INVOICE)
+                ->whereNull('branch_id')
                 ->where('branch_code', $validated['branchCode'])
                 ->lockForUpdate()
                 ->first();
@@ -130,10 +132,10 @@ class BirSettings extends Component
                 ]);
             }
 
-            BirSetting::query()->update(['is_active' => false]);
+            BirSetting::query()->whereNull('branch_id')->update(['is_active' => false]);
 
             $setting = BirSetting::query()->updateOrCreate(
-                ['id' => BirSetting::query()->latest('id')->value('id')],
+                ['id' => BirSetting::query()->whereNull('branch_id')->latest('id')->value('id')],
                 [
                     'registered_name' => trim($validated['registeredName']),
                     'trade_name' => $this->nullableString($validated['tradeName']),
@@ -153,6 +155,7 @@ class BirSettings extends Component
             InvoiceSequence::query()->updateOrCreate(
                 [
                     'document_type' => InvoiceSequence::TYPE_SALES_INVOICE,
+                    'branch_id' => null,
                     'branch_code' => $validated['branchCode'],
                 ],
                 [
@@ -191,6 +194,7 @@ class BirSettings extends Component
     {
         $lastIssuedNumber = InvoiceSequence::query()
             ->where('document_type', InvoiceSequence::TYPE_SALES_INVOICE)
+            ->whereNull('branch_id')
             ->where('branch_code', $this->branchCode)
             ->value('current_number');
 
